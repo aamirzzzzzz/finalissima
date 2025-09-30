@@ -30,47 +30,48 @@
       <div class="d-flex flex-wrap gap-2">
         {% if user.is_authenticated %}
           {% if user.user_type == 'S' %}
-            {% if course_status == 'ended' %}
-              <span class="btn btn-primary disabled">This Course has Ended</span>
-            {% elif course_status == 'not_started' %}
-              <span class="btn btn-primary disabled">This Course Not Started</span>
-            {% else %} {# Course is ongoing #}
-              {% if enrollment_status == 'enrolled' %}
-                {% if course_completed %}
-                  <a href="{% url 'module_content' course.id %}" class="btn btn-success">View Course Content</a>
+          {% if course_status == 'ended' %}
+          <a href="{% url 'course_detail' course.id %}" class="btn btn-primary">This Course has Ended</a>
+          {% elif course_status == 'not_started' %}
+          <a href="{% url 'course_detail' course.id %}" class="btn btn-primary">This Course Not Started</a>
+          {% else %}
+          {% if enrollment_status == 'enrolled' %}
+          {% if course_completed %}
+          <a href="{% url 'module_content' course.id %}" class="btn btn-success ms-2">Course Completed</a>
                   <a href="{% url 'generate_certificate' course.id %}" class="btn btn-info ms-2">Download Certificate</a>
-                {% else %}
-                  <a href="{% url 'module_content' course.id %}" class="btn btn-success">View Course Content</a>
-                {% endif %}
-              {% elif enrollment_status == 'pending' %}
-                <button class="btn btn-warning disabled">Enrollment Pending</button>
-              {% else %} {# Not enrolled #}
-                <a href="{% url 'enroll_course' course.id %}" class="btn btn-primary">Enroll Now</a>
-              {% endif %}
-            {% endif %}
 
-          {% elif user.user_type == 'I' %}
-            {% if course_status == 'ended' %}
-              <span class="btn btn-primary disabled">This Course has Ended</span>
-            {% elif course_status == 'not_started' %}
-              <span class="btn btn-primary disabled">This Course Not Started</span>
-            {% elif request.user == course.instructor  %}
-              <a href="{% url 'module_content' course.id %}" class="btn btn-success">Manage Modules</a>
-            {% else %}
-              <a href="{% url 'module_content' course.id %}" class="btn btn-success">View Course</a>
-            {% endif %}
-          {% endif %} 
-
-          {% if user.user_type == 'S' %} {# Only students can save courses #}
-            {% if is_saved %}
-              <a href="{% url 'toggle_save_course' course.id %}" class="btn btn-warning">Unsave</a>
-            {% else %}
-              <a href="{% url 'toggle_save_course' course.id %}" class="btn btn-secondary">Save Course</a>
-            {% endif %}
+          {% else %}
+          <a href="{% url 'module_content' course.id %}" class="btn btn-success">View Course Content</a>
           {% endif %}
+          {% elif enrollment_status == 'pending' %}
+          <button class="btn btn-warning">Enrollment Pending</button>
+          {% else %}
+          <a href="{% url 'enroll_course' course.id %}" class="btn btn-primary">Enroll Now</a>
+          {% endif %}
+        {% endif %}
 
-        {% else %} {# User is not authenticated #}
-          <a href="{% url 'login' %}" class="btn btn-primary">Login to Enroll</a>
+        {% elif user.user_type == 'I' %}
+        {% if course_status == 'ended' %}
+        <a href="{% url 'course_detail' course.id %}" class="btn btn-primary">This Course has Ended</a>
+        {% elif course_status == 'not_started' %}
+        <a href="{% url 'course_detail' course.id %}" class="btn btn-primary">This Course Not Started</a>
+        {% elif request.user == course.instructor  %}
+        <a href="{% url 'module_content' course.id %}" class="btn btn-success">Check Modules</a>
+        {% else %}
+        <a href="{% url 'module_content' course.id %}" class="btn btn-success">View Course</a>
+        {% endif %}
+        
+        {% else %}
+        {% endif %} 
+
+        {% if is_saved %}
+        <a href="{% url 'toggle_save_course' course.id %}" class="btn btn-warning">Unsave</a>
+        {% else %}
+        <a href="{% url 'toggle_save_course' course.id %}" class="btn btn-secondary">Save Course</a>
+        {% endif %}
+
+        {% else %}
+        <a href="{% url 'login' %}" class="btn btn-primary">Login to Enroll</a>
         {% endif %}
       </div>
     </div>

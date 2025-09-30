@@ -11,13 +11,13 @@ urlpatterns = [
     path('my-enrollments/', views.my_enrolled_courses, name='my_enrolled_courses'),
     path('saved/', views.saved_courses, name='saved_courses'),
     path('<int:course_id>/toggle-save/', views.toggle_save_course, name='toggle_save_course'),
-    path('module-content/<int:course_id>/', views.module_content, name='module_content'),
+    path('module-content/<int:course_id>/', views.module_content, name='module_content'),   
     path('add-module/<int:course_id>/', views.add_module, name='add_module'),
     path('add-lesson/<int:module_id>/', views.add_lesson, name='add_lesson'),
+    path('lesson/<int:lesson_id>/complete/', views.mark_lesson_completed, name='mark_lesson_completed'),
     path('edit-module/<int:module_id>/', views.edit_module, name='edit_module'),
     path('edit-lesson/<int:lesson_id>/', views.edit_lesson, name='edit_lesson'),
     path("course/<int:course_id>/complete/", views.mark_course_completed, name="mark_course_completed"),
-    path('<int:course_id>/', views.course_detail, name='course_detail'), # This was duplicated, keeping one
     path('course/<int:course_id>/certificate/', views.generate_certificate, name='generate_certificate'),
-    path('lesson/<int:lesson_id>/complete/', views.mark_lesson_completed, name='mark_lesson_completed'), # This was duplicated, keeping one
+    path('<int:course_id>/', views.course_detail, name='course_detail'),
 ]

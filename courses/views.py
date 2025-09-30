@@ -2,36 +2,27 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Count, Q
+from .models import Course, Enrollment, SavedCourse,Module,Lesson,LessonComplete,CourseCompletion
+from .forms import CoursePostingForm,ModuleForm,LessonForm
+from django.db.models import Count,Q
 from django.template.loader import render_to_string
 from django.http import HttpResponse
 from io import BytesIO
 from xhtml2pdf import pisa
-import datetime
-from django.http import JsonResponse
-
-from .models import (
-    Course, Enrollment, SavedCourse, Module, Lesson,
-    LessonComplete, CourseCompletion
-)
-from .forms import CoursePostingForm, ModuleForm, LessonForm
 
 
-# Helper functions to check user type
 def is_instructor(user):
     return user.is_authenticated and user.user_type == 'I'
 
-
 def is_student(user):
     return user.is_authenticated and user.user_type == 'S'
-
 
 @login_required
 def course_create(request):
     if not is_instructor(request.user):
         messages.error(request, "Only instructors can create courses.")
         return redirect('home')
-
+    
     if request.method == 'POST':
         form = CoursePostingForm(request.POST, request.FILES)
         if form.is_valid():
@@ -50,49 +41,56 @@ def my_courses(request):
     if not is_instructor(request.user):
         messages.error(request, "Only instructors can view their courses.")
         return redirect('home')
-
+    
     courses = Course.objects.filter(instructor=request.user).annotate(
         enrollment_count=Count('enrollments', filter=Q(enrollments__status='enrolled'))
     )
-
-    context = {'courses': courses}
+    
+    context = {
+        'courses': courses
+    }
     return render(request, 'courses/my_courses.html', context)
-
 
 @login_required
 def view_enrollments(request, course_id):
     if not is_instructor(request.user):
         messages.error(request, "Only instructors can view enrollments.")
         return redirect('home')
-
+    
     course = get_object_or_404(Course, id=course_id, instructor=request.user)
     enrollments = Enrollment.objects.filter(course=course)
-
-    context = {'course': course, 'enrollments': enrollments}
+    
+    context = {
+        'course': course,
+        'enrollments': enrollments
+    }
     return render(request, 'courses/view_enrollments.html', context)
-
 
 @login_required
 def enrollment_details(request, enrollment_id):
     if not is_instructor(request.user):
         messages.error(request, "Only instructors can view enrollment details.")
         return redirect('home')
-
+    
     enrollment = get_object_or_404(Enrollment, id=enrollment_id)
     if enrollment.course.instructor != request.user:
         messages.error(request, "You can only view enrollments for your own courses.")
         return redirect('my_courses')
-
-    context = {'enrollment': enrollment}
+    
+    context = {
+        'enrollment': enrollment
+    }
     return render(request, 'courses/enrollment_details.html', context)
 
 
 def course_list(request):
-    courses = Course.objects.filter(end_date__gte=timezone.now().date())
-    enrollment = Enrollment.objects.filter(status='enrolled')
-    context = {'courses': courses, 'enrollment': enrollment}
+    courses = Course.objects.all().filter(end_date__gte=timezone.now().date())
+    enrollment = Enrollment.objects.all().filter(status= 'enrolled')
+    context = {
+        'courses': courses,
+        'enrollment': enrollment
+    }
     return render(request, 'courses/course_list.html', context)
-
 
 @login_required
 def course_detail(request, course_id):
@@ -108,7 +106,7 @@ def course_detail(request, course_id):
     else:
         course_status = 'ongoing'
 
-    course_completed = CourseCompletion.objects.filter(student=request.user, course=course).exists()
+    course_completed = CourseCompletion.objects.filter(student = request.user, course = course).exists()
 
     if request.user.is_authenticated and request.user.user_type == 'S':
         is_saved = SavedCourse.objects.filter(student=request.user, course=course).exists()
@@ -124,17 +122,16 @@ def course_detail(request, course_id):
         'is_saved': is_saved,
         'enrollment_status': enrollment_status,
         'course_status': course_status,
-        'course_completed': course_completed,
+        'course_completed': course_completed
     }
     return render(request, 'courses/course_detail.html', context)
-
 
 @login_required
 def enroll_course(request, course_id):
     if not is_student(request.user):
         messages.error(request, "Only students can enroll in courses.")
         return redirect('home')
-
+    
     course = get_object_or_404(Course, id=course_id)
     enrollment, created = Enrollment.objects.get_or_create(student=request.user, course=course)
 
@@ -142,68 +139,71 @@ def enroll_course(request, course_id):
         if enrollment.status == 'enrolled':
             messages.info(request, "You are already enrolled in this course!")
             return redirect('course_detail', course_id=course_id)
+
         elif enrollment.status == 'pending':
             messages.warning(request, "You have already applied for this course!")
             return redirect('course_detail', course_id=course_id)
 
-    return redirect('course_detail', course_id=course.id)
-
+    return redirect('course_detail',course_id = course.id)
 
 @login_required
 def my_enrolled_courses(request):
     if not is_student(request.user):
         messages.error(request, "Only students can view enrolled courses.")
         return redirect('home')
-
+    
     enrolled_courses = Enrollment.objects.filter(student=request.user)
     return render(request, 'courses/my_enrolled_courses.html', {'enrolled_courses': enrolled_courses})
-
 
 @login_required
 def saved_courses(request):
     if not is_student(request.user):
         messages.error(request, "Only students can view saved courses.")
         return redirect('home')
-
+    
     saved_courses = SavedCourse.objects.filter(student=request.user)
     return render(request, 'courses/saved_courses.html', {'saved_courses': saved_courses})
-
 
 @login_required
 def toggle_save_course(request, course_id):
     if request.user.user_type != 'S':
         messages.error(request, "Only students can save courses.")
         return redirect('home')
-
+    
     course = get_object_or_404(Course, id=course_id)
-    saved_course, created = SavedCourse.objects.get_or_create(student=request.user, course=course)
-
+    saved_course, created = SavedCourse.objects.get_or_create(
+        student=request.user,
+        course=course
+    )
+    
     if not created:
         saved_course.delete()
         messages.info(request, "Course removed from saved list.")
     else:
         messages.success(request, "Course saved successfully!")
-
+    
     return redirect('course_detail', course_id=course_id)
 
 
-def module_content(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
-
+def module_content(request,course_id):
+    course = get_object_or_404(Course,id=course_id)
+    
     completed_lessons = []
     total_lessons = Lesson.objects.filter(module__course=course).count()
-    course_completed = CourseCompletion.objects.filter(student=request.user, course=course).exists()
+    course_completed = CourseCompletion.objects.filter(student = request.user, course = course).exists()
     can_complete_course = False
-
+    
     if is_student(request.user):
-        completion = LessonComplete.objects.filter(student=request.user, lesson__module__course=course)
-        completed_lessons = [c.lesson.id for c in completion]
+        completion = LessonComplete.objects.filter(student = request.user,lesson__module__course = course)
+        for c in completion:
+            completed_lessons.append(c.lesson.id)
 
         enrollment = Enrollment.objects.filter(course=course, student=request.user, status="enrolled").first()
         if not enrollment:
-            messages.success(request, "You are not enrolled in this course")
+            messages.success(request,f"You are not enrolled in this course")
             return redirect('course_detail', course_id=course.id)
-
+        
+    
     if total_lessons > 0 and len(completed_lessons) == total_lessons:
         can_complete_course = True
 
@@ -214,18 +214,17 @@ def module_content(request, course_id):
         'completed_lessons': completed_lessons,
         'can_complete_course': can_complete_course,
         'total_lessons': total_lessons,
-        'course_completed': course_completed,
+        'course_completed': course_completed
     }
-    return render(request, "courses/module_content.html", context)
-
-
+    return render(request,"courses/module_content.html",context)
+        
 @login_required
-def add_module(request, course_id):
+def add_module(request,course_id):
     if not is_instructor(request.user):
-        messages.error(request, "Only instructors can create modules.")
+        messages.error(request, "Only instructors can Create Module.")
         return redirect('home')
-
-    course = get_object_or_404(Course, id=course_id, instructor=request.user)
+    
+    course = get_object_or_404(Course,id=course_id,instructor=request.user)
 
     if request.method == 'POST':
         form = ModuleForm(request.POST)
@@ -233,78 +232,84 @@ def add_module(request, course_id):
             module = form.save(commit=False)
             module.course = course
             module.save()
-            messages.success(request, "Module added successfully")
-            return redirect('module_content', course_id=course.id)
+            messages.success(request,f"Module added successfully")
+            return redirect('module_content',course_id=course.id)
+            
         else:
-            messages.error(request, "Module not added, try again")
+            messages.error(request,f"Module not added, Try Again")
     else:
         form = ModuleForm()
 
-    context = {'form': form, 'course': course}
-    return render(request, 'courses/add_module.html', context)
-
+    context = {
+        'form': form,
+        'course': course
+    }
+    return render(request,'courses/add_module.html',context)
 
 @login_required
-def add_lesson(request, module_id):
+def add_lesson(request,module_id):
     if not is_instructor(request.user):
-        messages.error(request, "Only instructors can manage modules.")
+        messages.error(request, "Only instructors can manage Module.")
         return redirect('home')
-
+    
     module = get_object_or_404(Module, id=module_id, course__instructor=request.user)
 
     if request.method == "POST":
-        form = LessonForm(request.POST, request.FILES)
+        form = LessonForm(request.POST,request.FILES)
         if form.is_valid():
             lesson = form.save(commit=False)
             lesson.module = module
             lesson.save()
-            messages.success(request, "Lesson added successfully")
-            return redirect('module_content', course_id=module.course.id)
+            messages.success(request,f"Lesson Added Successfully")
+            return redirect('module_content',course_id = module.course.id)
         else:
-            messages.error(request, "Lesson not added, try again")
+            messages.error(request,f"Lesson not added, Try Again")
     else:
         form = LessonForm()
+        
+    context = {
+        'form': form,
+        'module': module
+    }
+    return render(request,"courses/add_lesson.html",context)
+    
+@login_required
+def mark_lesson_completed(request,lesson_id):
+    if not is_student(request.user):
+        messages.error(request,f"Only Students can Complete Course")
+        return redirect('home')
+    
+    lesson = get_object_or_404(Lesson,id=lesson_id)
 
-    context = {'form': form, 'module': module}
-    return render(request, "courses/add_lesson.html", context)
-
+    LessonComplete.objects.get_or_create(student = request.user, lesson = lesson)
+    messages.success(request,f"Marked {lesson.title}-Completed")
+    return redirect('module_content',course_id = lesson.module.course.id)
 
 @login_required
-def mark_course_completed(request, course_id):
-    course = get_object_or_404(Course, id=course_id)
-
+def mark_course_completed(request,course_id):
+    course = get_object_or_404(Course,id=course_id)
+    
     if not is_student(request.user):
-        messages.error(request, "Only students can complete courses.")
+        messages.error(request,f"Only Students can Complete Course")
         return redirect('home')
-
-    lessons = Lesson.objects.filter(module__course=course)
-    completed = LessonComplete.objects.filter(student=request.user, lesson__in=lessons).count()
+    
+    lessons = Lesson.objects.filter(module__course = course)
+    completed = LessonComplete.objects.filter(student=request.user,lesson__in = lessons).count()
 
     if completed < lessons.count():
-        messages.error(request, "You must complete all lessons to finish the course.")
-        return redirect('module_content', course_id=course.id)
+        messages.error(request,"You Must Complete all Lessons to Finish Course")
+        return redirect('module_content',course_id=course.id)
     else:
-        course_completion, created = CourseCompletion.objects.get_or_create(
-            student=request.user,
-            course=course
-        )
-
-        if created:
-            messages.success(request, f"Congratulations! You have successfully completed the course: {course.title}.")
-        else:
-            messages.info(request, f"You had already completed the course: {course.title}.")
-
-        return redirect('course_detail', course_id=course.id)
-
-
+        CourseCompletion.objects.get_or_create(student = request.user,course=course)
+        messages.success(request,f"Congratulation Course Finished")
+        return redirect('course_detail',course_id=course.id)
+    
 @login_required
 def edit_module(request, module_id):
     if not is_instructor(request.user):
         messages.error(request, "Only instructors can edit modules.")
         return redirect('home')
-
     module = get_object_or_404(Module, id=module_id, course__instructor=request.user)
-
     if request.method == 'POST':
         form = ModuleForm(request.POST, instance=module)
         if form.is_valid():
@@ -315,10 +320,11 @@ def edit_module(request, module_id):
             messages.error(request, "Error updating module. Please check the form.")
     else:
         form = ModuleForm(instance=module)
-
-    context = {'form': form, 'module': module}
+    context = {
+        'form': form,
+        'module': module,
+    }
     return render(request, 'courses/edit_module.html', context)
-
 
 @login_required
 def edit_lesson(request, lesson_id):
@@ -339,9 +345,11 @@ def edit_lesson(request, lesson_id):
     else:
         form = LessonForm(instance=lesson)
 
-    context = {'form': form, 'lesson': lesson}
+    context = {
+        'form': form,
+        'lesson': lesson,
+    }
     return render(request, 'courses/edit_lesson.html', context)
-
 
 @login_required
 def generate_certificate(request, course_id):
@@ -374,21 +382,3 @@ def generate_certificate(request, course_id):
     response = HttpResponse(result.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="certificate_{student.username}_{course.id}.pdf"'
     return response
-
-
-@login_required
-def mark_lesson_completed(request, lesson_id):
-    if not is_student(request.user):
-        return JsonResponse({'error': 'Only students can mark lessons completed.'}, status=403)
-
-    lesson = get_object_or_404(Lesson, id=lesson_id)
-    enrollment = Enrollment.objects.filter(student=request.user, course=lesson.module.course, status='enrolled').first()
-    if not enrollment:
-        return JsonResponse({'error': 'You are not enrolled in this course.'}, status=403)
-
-    lesson_complete, created = LessonComplete.objects.get_or_create(student=request.user, lesson=lesson)
-
-    if created:
-        return JsonResponse({'success': 'Lesson marked as completed.'})
-    else:
-        return JsonResponse({'info': 'Lesson was already marked as completed.'})
